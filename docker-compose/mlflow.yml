@@ -1,0 +1,39 @@
+version: "3.9"
+services:
+  mlflow-server:
+    build: ../mlflow-server
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      - BACKEND_URI=postgresql://mlflow_user:mlflow_pass@mlflow-db/mlflow_db
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minio_root
+      - AWS_SECRET_ACCESS_KEY=minio_pass
+      - ARTIFACT_ROOT=s3://mlflow_bucket/
+    ports:
+      - 5000:5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:5000"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  mlflow-db:
+    image: postgres
+    environment:
+      - POSTGRES_DB=mlflow_db
+      - POSTGRES_USER=mlflow_user
+      - POSTGRES_PASSWORD=mlflow_pass
+    volumes:
+      - mlflow-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "mlflow_db"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+volumes:
+  mlflow-data: {}
